@@ -17,7 +17,6 @@ import java.util.List;
 @Component
 public class DataLoader {
     private static final Logger logger = LoggerFactory.getLogger(DataLoader.class);
-
     private final VectorStore vectorStore;
 
     @Value("classpath:/cv-hadil-hammami.pdf")
@@ -26,20 +25,23 @@ public class DataLoader {
     public DataLoader(VectorStore vectorStore) {
         this.vectorStore = vectorStore;
     }
+
     @PostConstruct
     public void init() {
         try {
             if (!pdfResource.exists()) {
-                throw new RuntimeException("PDF not found: " + pdfResource.getFilename());
+                logger.warn("Default PDF not found: {}. Initial vector store will be empty.", pdfResource.getFilename());
+                return;
             }
 
             // Debug PDF content
-            logger.info("Loading PDF from: {}", pdfResource.getURL());
+            logger.info("Loading default PDF from: {}", pdfResource.getURL());
 
             // Read PDF with proper config
             PdfDocumentReaderConfig config = PdfDocumentReaderConfig.builder()
                     .withPagesPerDocument(1)
                     .build();
+
             PagePdfDocumentReader reader = new PagePdfDocumentReader(pdfResource, config);
 
             // Split text
@@ -48,17 +50,17 @@ public class DataLoader {
 
             // Add metadata and debug content
             documents.forEach(doc -> {
-                doc.getMetadata().put("source", "cv");
-                logger.info("Content length: {}", doc.getText().length()); // Changed getContent() to getText()
+                doc.getMetadata().put("source", "default-cv");
+                logger.info("Content length: {}", doc.getText().length());
             });
 
             // Save to vector store
             vectorStore.accept(documents);
-            logger.info("Loaded {} documents", documents.size());
-
+            logger.info("Loaded {} documents from default PDF", documents.size());
         } catch (Exception e) {
-            logger.error("Failed to load PDF", e);
-            throw new RuntimeException(e);
+            logger.error("Failed to load default PDF", e);
+            // Ne pas lancer d'exception pour permettre à l'application de démarrer même sans PDF par défaut
+            logger.warn("Application will start with empty vector store");
         }
     }
 }

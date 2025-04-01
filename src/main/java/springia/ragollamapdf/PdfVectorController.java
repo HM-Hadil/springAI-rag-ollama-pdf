@@ -4,11 +4,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.springframework.ai.document.Document;
+import org.springframework.web.multipart.MultipartFile;
+import springia.ragollamapdf.service.PdfService;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,10 +23,12 @@ public class PdfVectorController {
 
     private final VectorStore vectorStore;
     private final ChatModel chatModel;
+    private final PdfService pdfService;
 
-    public PdfVectorController(VectorStore vectorStore, ChatModel chatModel) {
+    public PdfVectorController(VectorStore vectorStore, ChatModel chatModel, PdfService pdfService) {
         this.vectorStore = vectorStore;
         this.chatModel = chatModel;
+        this.pdfService = pdfService;
     }
 
     @GetMapping("/")
@@ -40,7 +47,7 @@ public class PdfVectorController {
 
             // Prepare the full prompt
             String fullPrompt = String.format(
-                    "Your task is to answer questions about the Hadil CV, using the following document context:\n\n" +
+                    "Your task is to answer questions about the document, using the following document context:\n\n" +
                             "CONTEXT:\n%s\n\n" +
                             "QUESTION:\n%s",
                     documentContext,
@@ -56,6 +63,20 @@ public class PdfVectorController {
         } catch (Exception e) {
             logger.error("Error processing request", e);
             return "Sorry, an error occurred while processing your request: " + e.getMessage();
+        }
+    }
+
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public String uploadAndQuery(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("question") String question) {
+        try {
+            // Process the uploaded PDF and store in vector database
+            String response = pdfService.processPdfAndAnswerQuestion(file, question);
+            return response;
+        } catch (Exception e) {
+            logger.error("Error processing PDF upload", e);
+            return "Error processing your PDF: " + e.getMessage();
         }
     }
 
@@ -80,3 +101,4 @@ public class PdfVectorController {
         }
     }
 }
+
